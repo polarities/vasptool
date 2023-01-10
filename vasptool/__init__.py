@@ -1,1 +1,1 @@
-from _incar import INCAR
+from ._incar import INCAR
