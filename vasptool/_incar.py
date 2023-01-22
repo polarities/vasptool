@@ -1,3 +1,4 @@
+import os
 from collections import UserDict
 
 class INCAR(UserDict):
