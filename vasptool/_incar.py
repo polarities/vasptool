@@ -1,16 +1,14 @@
 import os
-from collections import UserDict
 
-class INCAR(UserDict):
+
+class INCAR(dict):
     def set_tag(self, tag, value):
-        if self.values(tag) is False:
-            raise ValueError(f"Key '{tag}' is not valid INCAR keyword.")
         self.update({tag:value})
 
     def save_incar(self, path):
         docpath = os.path.join(path, "INCAR")
-        for k in range(self.keys()):
-            if self.values(k) is False:
+        for k in self.keys():
+            if self.validate(k) is False:
                 raise ValueError(f"Key '{k}' is not valid INCAR keyword. Revise your input.")
 
         with open(docpath, 'w') as file:
