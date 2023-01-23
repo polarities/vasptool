@@ -1,1 +1,1 @@
-from ._useful_functions import get_files_from_path, get_vasprunxml
+from ._useful_functions import get_files_from_path, get_vasprunxml, pull_data_from_vasprunxml
