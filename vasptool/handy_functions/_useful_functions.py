@@ -5,7 +5,7 @@ from pathlib import Path
 from vasprun import vasprun
 import numpy as np
 from numpy.lib import recfunctions as rfn
-
+from tqdm import tqdm
 
 def path_reprocess(path):
     if type(path) == str:
@@ -50,7 +50,7 @@ def pull_data_from_vasprunxml(working_path, folder_delimiter, folder_col_dtype, 
     if len(vasprun_attributes) != len(vasprun_col_dtype):  # If size of dtype-like tuple is not matching with attribute.
         raise ValueError("Length of `vasprun_col_dtype` and `vasprun_attributes` are not matches each others.")
 
-    for vrunpath in vrun:  # Loop over found vasprun.xml files.
+    for vrunpath in tqdm(vrun):  # Loop over found vasprun.xml files.
         temporary_list = list()
         # Check folder name format is matching with the given dtype-like tuple.
         if len(folder_values := vrunpath.split('/')[-2].split(sep=folder_delimiter)) == len(folder_col_dtype):

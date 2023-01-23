@@ -1,6 +1,5 @@
 import os
 
-
 class INCAR(dict):
     def set_tag(self, tag, value):
         self.update({tag:value})
