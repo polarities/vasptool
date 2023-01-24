@@ -59,8 +59,11 @@ def pull_data_from_vasprunxml(working_path, folder_delimiter, folder_col_dtype, 
                 raise ValueError("Length of `folder_col_dtype` is not matches with the number of array parsed from "
                                  "folder name.")
             fvalue = list()
-            for idx, folder_dtype in enumerate(folder_col_dtype):  # Convert to the specified type.
-                fvalue += [folder_dtype[1](folder_values[idx]), ]
+            try:  # When error
+                for idx, folder_dtype in enumerate(folder_col_dtype):  # Convert to the specified type.
+                    fvalue += [folder_dtype[1](folder_values[idx]), ]
+            except KeyError:
+                fvalue = None
             temporary_list += fvalue
 
         vddd = vasprun(vrunpath).values  # vasprun.xml file content in dictionary
