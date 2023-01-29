@@ -1,4 +1,6 @@
 from pathlib import Path
+
+
 def path_reprocess(path):
     if type(path) == str:
         return Path(path)
