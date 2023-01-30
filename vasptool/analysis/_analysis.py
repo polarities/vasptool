@@ -6,6 +6,16 @@ from numpy.lib import recfunctions as rfn
 from tqdm import tqdm
 from ..core._cfunc import path_reprocess
 from ..handy_functions import get_files_from_path
+from warnings import warn
+from ..core._logger import get_logger
+
+logger = get_logger('VASPTOOL')
+
+BLUE = '\033[94m'
+RED = '\033[31m'
+GREEN = '\033[92m'
+ENDC = '\033[0m'
+
 
 def get_vasprunxml(path: str | Path):
     path = path_reprocess(path)
@@ -14,6 +24,7 @@ def get_vasprunxml(path: str | Path):
         for filename in fnmatch.filter(filenames, "vasprun.xml"):
             matches.append(os.path.join(root, filename))
     return matches
+
 
 def pull_data_from_vasprunxml(working_path, folder_delimiter, folder_col_dtype, vasprun_attributes, vasprun_col_dtype):
     vrun = get_vasprunxml(working_path)
@@ -39,23 +50,23 @@ def pull_data_from_vasprunxml(working_path, folder_delimiter, folder_col_dtype, 
             temporary_list += fvalue
 
         vddd = vasprun(vrunpath).values  # vasprun.xml file content in dictionary
-        for idx, attribute in enumerate(vasprun_attributes):  # recursive query based on the key path.
-            keys = attribute.split('/')
-            for key in keys:
-                vddd = vddd[key]
-            queried_value = vddd
-            temporary_list += [vasprun_col_dtype[idx][1](queried_value), ]  # Convert to the desired type.
-        master_list.append(temporary_list)
+        try:
+            for idx, attribute in enumerate(vasprun_attributes):  # recursive query based on the key path.
+                keys = attribute.split('/')
+                for key in keys:
+                    vddd = vddd[key]
+                queried_value = vddd
+                temporary_list += [vasprun_col_dtype[idx][1](queried_value), ]  # Convert to the desired type.
+            master_list.append(temporary_list)
+        except KeyError:
+            logger.warn(f"Key could not be found for {vrunpath}. We suspect calculation has been failed.")
+
     dtype_obj += folder_col_dtype  # Construct dtype.
     dtype_obj += vasprun_col_dtype  # Construct dtype.
     return rfn.unstructured_to_structured(np.array(master_list), dtype=np.dtype(dtype_obj))  # Returns structured array.
 
-def diff_pprint(differ_compared, reference:str, compared:str, localize=False):
-    BLUE = '\033[94m'
-    RED = '\033[31m'
-    GREEN = '\033[92m'
-    ENDC = '\033[0m'
 
+def diff_pprint(differ_compared, reference: str, compared: str, localize=False):
     print(BLUE + 'Reference: ' + reference + ENDC)
     print(BLUE + ' Compared: ' + compared + ENDC)
 
@@ -72,18 +83,19 @@ def diff_pprint(differ_compared, reference:str, compared:str, localize=False):
                 print("\t" + COL + line.strip() + ENDC)
             idx += 1
         elif line[0:2] == '- ':
-            print("\t" +RED + line.strip() + ENDC)
+            print("\t" + RED + line.strip() + ENDC)
             idx += 1
             prev = 1
         elif line[0:2] == '+ ':
-            print("\t" +GREEN + line.strip() + ENDC)
+            print("\t" + GREEN + line.strip() + ENDC)
             idx += 1
             prev = 2
     if idx == 0:
         print(RED + "  Reference and given documents are identical" + ENDC)
     del differ_compared
 
-def filediff(path:str, fname:str, reference_indice=-1):
+
+def filediff(path: str, fname: str, reference_indice=-1, linelimit=None):
     differ = difflib.Differ()
     file_list = get_files_from_path(path=path, fname=fname)
     reference = file_list.pop(reference_indice)
@@ -92,8 +104,54 @@ def filediff(path:str, fname:str, reference_indice=-1):
     for file in file_list:
         with open(file) as com:
             comp_lines = com.readlines()
-        diff = differ.compare(
-            a=ref_lines,
-            b=comp_lines,
-        )
+        if linelimit is None:
+            diff = differ.compare(
+                a=ref_lines,
+                b=comp_lines,
+            )
+        else:
+            diff = differ.compare(
+                a=ref_lines[:linelimit + 1],
+                b=comp_lines[:linelimit + 1],
+            )
         diff_pprint(diff, reference, file)
+
+
+def output_error_detect(path: str, fname='output_*', unique_error_only=True):
+    file_list = get_files_from_path(path=path, fname=fname)
+
+    for file in file_list:
+        line_number = 1
+        detected_errors = list()
+        error_number = 0
+        warning_number = 0
+        successful_convergence = False
+        print(BLUE + f'Detecting error or warnings from {file}' + ENDC)
+        with open(file) as output:
+            for line in output.readlines():
+                line = line.strip()
+                if line in detected_errors:
+                    pass
+                else:
+                    if 'warning:' in line.lower():
+                        print(f"{file:>10}  {line_number:0=5}  " + line)
+                        detected_errors.append(line)
+                        warning_number += 1
+                    elif 'error' in line.lower():
+                        print(f"{file:>10}  {line_number:0=5}  " + line)
+                        detected_errors.append(line)
+                        error_number += 1
+                    elif 'stopping' in line.lower():
+                        successful_convergence = True
+                    else:
+                        pass
+                line_number += 1
+            if (error_number == 0) and (warning_number == 0) and (successful_convergence == True):
+                print(BLUE + f'  - No error and warning detected. Convergence seems to be successful' + ENDC)
+            else:
+                if error_number == 0:
+                    COLOR = GREEN
+                else:
+                    COLOR = RED
+                print(
+                    COLOR + f'  - Error: {error_number}, Warning: {warning_number}, Convergence: {successful_convergence}' + ENDC)
