@@ -8,6 +8,7 @@ from ..core._cfunc import path_reprocess
 from ..handy_functions import get_files_from_path
 from warnings import warn
 from ..core._logger import get_logger
+from lxml import etree
 
 logger = get_logger('VASPTOOL')
 
@@ -24,6 +25,10 @@ def get_vasprunxml(path: str | Path):
         for filename in fnmatch.filter(filenames, "vasprun.xml"):
             matches.append(os.path.join(root, filename))
     return matches
+
+
+def regex_parser(string, regex_pattern, capture_group_name):
+    pass
 
 
 def pull_data_from_vasprunxml(working_path, folder_delimiter, folder_col_dtype, vasprun_attributes, vasprun_col_dtype):
@@ -66,11 +71,18 @@ def pull_data_from_vasprunxml(working_path, folder_delimiter, folder_col_dtype, 
     return rfn.unstructured_to_structured(np.array(master_list), dtype=np.dtype(dtype_obj))  # Returns structured array.
 
 
+def get_total_scs_time(vasprun_path):
+    tree = etree.parse(vasprun_path)
+    hours = float(tree.xpath("//time[@name='totalsc']")[0].text.split('.')[0]) / 3600
+    return hours
+
+
 def diff_pprint(differ_compared, reference: str, compared: str, localize=False):
     print(BLUE + 'Reference: ' + reference + ENDC)
     print(BLUE + ' Compared: ' + compared + ENDC)
 
     idx = 0
+    prev = None
     for line in differ_compared:
         if line[0:2] == '  ':
             pass
@@ -79,6 +91,8 @@ def diff_pprint(differ_compared, reference: str, compared: str, localize=False):
                 COL = RED
             elif prev == 2:
                 COL = GREEN
+            else:
+                raise ValueError('Could not identify the previous output.')
             if localize:
                 print("\t" + COL + line.strip() + ENDC)
             idx += 1
